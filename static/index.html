@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shortlist</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,520&family=Outfit:wght@400;520&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <p class="eyebrow">Resume shortlist</p>
+        <h1>Upload files. Ask who fits.</h1>
+      </header>
+
+      <label class="drop" id="dropzone">
+        <input
+          id="file-input"
+          type="file"
+          accept=".pdf,.docx,.doc,.txt,.md,.zip"
+          multiple
+          hidden
+        />
+        <strong>Drop resumes here</strong>
+      <span>PDF, DOCX, TXT, or a zip (up to thousands). You will see progress.</span>
+      </label>
+      <p class="status" id="upload-status"></p>
+      <p class="status" id="library-count"></p>
+      <ul class="files" id="file-list"></ul>
+
+      <form id="ask-form">
+        <textarea
+          name="preference"
+          rows="3"
+          placeholder="e.g. top 2 candidates with Python, or who has the most React experience"
+        ></textarea>
+        <button type="submit" class="primary">Get shortlist</button>
+      </form>
+      <p class="status" id="ask-status"></p>
+      <p class="lede" id="ask-summary"></p>
+      <button type="button" class="ghost hidden" id="download-zip">
+        Download shortlist zip
+      </button>
+      <ol class="search-list" id="ask-results"></ol>
+    </main>
+    <div id="upload-overlay" class="overlay hidden" aria-live="polite">
+      <div class="progress-card">
+        <p class="eyebrow">Indexing</p>
+        <h2>Uploading resumes</h2>
+        <div class="bar"><span id="bar-fill"></span></div>
+        <p id="progress-text">Starting…</p>
+        <p class="meta" id="progress-file"></p>
+      </div>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

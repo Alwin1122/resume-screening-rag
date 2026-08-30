@@ -1,0 +1,26 @@
+Priya Nair
+priya.nair@email.com
++91 98765 43120
+Bengaluru, India
+
+Summary
+Senior backend engineer with 7 years building production APIs in Python.
+Comfortable with FastAPI, Django, PostgreSQL, Redis, and AWS.
+Led a platform team of 5 and care about clear system design.
+
+Experience
+Staff Backend Engineer, Northwind Labs — 2022–2026
+- Designed FastAPI services that handle 12M requests a day
+- Moved billing jobs to PostgreSQL and Redis queues
+- Introduced Docker, GitHub Actions, and Terraform for AWS
+- Mentored engineers on system design and code review
+
+Backend Engineer, Harbor Retail — 2019–2022
+- Built Django REST APIs and GraphQL edges for checkout
+- Reduced p95 latency with query tuning and caching
+
+Education
+B.Tech Computer Science, NIT Calicut
+
+Skills
+Python, FastAPI, Django, PostgreSQL, Redis, AWS, Docker, Terraform, Linux, Git

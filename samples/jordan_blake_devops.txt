@@ -1,0 +1,25 @@
+Jordan Blake
+jordan.blake@email.com
++1 206 555 0144
+Seattle, WA
+
+Summary
+DevOps and SRE engineer. Kubernetes, Terraform, AWS, and CI/CD.
+Python for automation, not application backends. 6 years in production.
+
+Experience
+SRE, Cascade Pay — 2020–2026
+- Ran Kubernetes on AWS EKS
+- Terraform modules for networking and IAM
+- Jenkins then GitHub Actions pipelines
+- On-call, SLOs, and incident reviews
+
+Systems Engineer, Harbor Retail — 2018–2020
+- Linux fleet, Ansible, monitoring
+
+Education
+BS Information Systems, University of Washington
+
+Skills
+AWS, Kubernetes, Terraform, Docker, CI/CD, Jenkins, GitHub Actions,
+Linux, Ansible, Python, networking, SRE

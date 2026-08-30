@@ -1,0 +1,27 @@
+Aisha Rahman
+aisha.rahman@email.com
++44 20 7946 0991
+London, UK
+
+Summary
+Machine learning engineer and data scientist. 5 years of applied NLP,
+recommendation systems, and RAG prototypes with Python and PyTorch.
+
+Experience
+ML Engineer, Cobalt Research — 2022–2026
+- Shipped a RAG assistant over internal papers using embeddings and vector search
+- Fine-tuned transformers for classification; tracked experiments in Python
+- Productionized models with Docker and FastAPI
+- Presented results to research and product teams
+
+Data Scientist, Helio Bank — 2020–2022
+- Credit risk models with scikit-learn, pandas, and SQL
+- Dashboards in Tableau for underwriting
+
+Education
+MSc Machine Learning, UCL
+BSc Statistics, University of Manchester
+
+Skills
+Python, machine learning, deep learning, NLP, LLM, RAG, PyTorch, pandas,
+scikit-learn, SQL, FastAPI, Docker, Tableau

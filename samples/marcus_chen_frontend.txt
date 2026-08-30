@@ -1,0 +1,25 @@
+Marcus Chen
+marcus.chen@email.com
++1 415 555 0198
+San Francisco, CA
+
+Profile
+Frontend engineer focused on React, TypeScript, and accessible UI.
+6 years shipping product interfaces with Next.js and GraphQL.
+
+Experience
+Senior Frontend Engineer, Lumen Health — 2021–2026
+- Rebuilt the patient portal in React and TypeScript
+- Designed a design system in Figma and CSS
+- Improved Lighthouse accessibility from 71 to 96
+- Worked closely with product managers on weekly releases
+
+Frontend Engineer, Atlas Commerce — 2018–2021
+- Vue and JavaScript storefronts, later migrated to React
+- Partnered with SEO and marketing on landing pages
+
+Education
+BA Design, RISD
+
+Skills
+React, TypeScript, JavaScript, Next.js, CSS, HTML, GraphQL, Figma, UI/UX
