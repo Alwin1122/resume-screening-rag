@@ -1,7 +1,7 @@
 from pathlib import Path
 
-# Paste your Groq key here
-GROQ_API_KEY = "gsk_your_key_here"
+# Local only. Never commit a real key. Paste it here or set GROQ_API_KEY in the environment.
+GROQ_API_KEY = ""
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"

@@ -58,7 +58,7 @@ def groq_status() -> dict:
 def get_groq_key() -> str:
     importlib.reload(config_mod)
     coded = (getattr(config_mod, "GROQ_API_KEY", "") or "").strip()
-    if coded and coded != "gsk_your_key_here":
+    if coded:
         return coded
     env = (os.environ.get("GROQ_API_KEY") or "").strip()
     if env:

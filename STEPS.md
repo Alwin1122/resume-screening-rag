@@ -32,11 +32,11 @@ Example: if the project sits in your Downloads folder, that path is whatever you
 2. Set:
 
 ```python
-GROQ_API_KEY = "gsk_your_key_here"
+GROQ_API_KEY = ""
 ```
 
-3. Replace the placeholder with your real key
-4. Save (**Ctrl+S**)
+3. Paste your Groq key between the quotes (local machine only)
+4. Save (**Ctrl+S**). Do not commit this file after adding a real key.
 
 If you type the key but do not save, the app will not see it.
 

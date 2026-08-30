@@ -6,3 +6,5 @@ data/
 .chroma/
 *.egg-info/
 .DS_Store
+data/settings.json
+
