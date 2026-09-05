@@ -177,29 +177,49 @@ def _complete(key: str, preference: str, context: str, limit: int) -> dict:
         f"Resumes:\n{context}\n\n"
         "Return the JSON list now."
     )
-    last_error = None
+    errors: list[str] = []
     for model in GROQ_MODELS:
         try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": user},
-                ],
-                temperature=0.2,
-                response_format={"type": "json_object"},
-            )
+            response = _chat(client, model, user)
             text = response.choices[0].message.content or "{}"
             data = _parse_json(text)
             data["_model"] = model
             return data
         except Exception as exc:
-            last_error = exc
             message = str(exc)
             if "401" in message or "invalid_api_key" in message.lower():
                 raise RuntimeError("Groq rejected the API key. Check GROQ_API_KEY in app/config.py.") from exc
+            errors.append(f"{model}: {message}")
             continue
-    raise RuntimeError(f"Groq could not rank the list: {last_error}")
+    detail = errors[-1] if errors else "no model IDs configured"
+    raise RuntimeError(
+        "Groq could not rank the list. "
+        "The old Llama 3.3 ID is retired; this app now uses gpt-oss / Qwen. "
+        f"Last error: {detail}"
+    ) from None
+
+
+def _chat(client: Groq, model: str, user: str):
+    kwargs = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": SYSTEM},
+            {"role": "user", "content": user},
+        ],
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+    }
+    if model.startswith("openai/gpt-oss"):
+        kwargs["include_reasoning"] = False
+    try:
+        return client.chat.completions.create(**kwargs)
+    except TypeError:
+        kwargs.pop("include_reasoning", None)
+        return client.chat.completions.create(**kwargs)
+    except Exception:
+        kwargs.pop("include_reasoning", None)
+        kwargs.pop("response_format", None)
+        return client.chat.completions.create(**kwargs)
 
 
 def _context_block(results: list[dict]) -> str:

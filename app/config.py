@@ -14,10 +14,11 @@ CHROMA_DIR = DATA_DIR / "chroma"
 RESUMES_PATH = DATA_DIR / "resumes.json"
 SHORTLIST_PATH = DATA_DIR / "shortlist.json"
 SETTINGS_PATH = DATA_DIR / "settings.json"
+# Developer-tier IDs. llama-3.3-70b-versatile was retired 16 Aug 2026.
 GROQ_MODELS = (
     "openai/gpt-oss-20b",
     "openai/gpt-oss-120b",
-    "llama-3.3-70b-versatile",
+    "qwen/qwen3.6-27b",
 )
 
 COLLECTION_NAME = "resumes"

@@ -1,5 +1,6 @@
 # FAQ
 
-Operational notes moved to **STEPS.md**.
+- How to run: **STEPS.md**
+- Viva (concepts): **VIVA.md**
+- Full project report: **REPORT.md**
 
-For **viva / concept questions and answers**, see **VIVA.md**.

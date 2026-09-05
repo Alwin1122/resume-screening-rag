@@ -8,6 +8,7 @@ Local web app: upload resumes, ask who fits, get a ranked shortlist, download th
 |------|------------|
 | [STEPS.md](STEPS.md) | How to install and run |
 | [VIVA.md](VIVA.md) | Concept viva questions and answers |
+| [REPORT.md](REPORT.md) | Detailed project report |
 | [FAQ.md](FAQ.md) | Pointers to the files above |
 
 ## Quick start
