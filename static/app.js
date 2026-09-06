@@ -75,39 +75,65 @@ function renderProgress(job) {
   $("#progress-file").textContent = job.current || "";
 }
 
+let activeJobId = null;
+let uploadAbort = null;
+
 async function waitForJob(jobId) {
+  activeJobId = jobId;
   showOverlay(true);
+  $("#cancel-upload").disabled = false;
   for (;;) {
     const job = await api(`/api/resumes/jobs/${jobId}`);
     renderProgress(job);
-    if (job.status === "done" || job.status === "error") {
+    if (["done", "error", "cancelled"].includes(job.status)) {
       return job;
     }
     await new Promise((r) => setTimeout(r, 450));
   }
 }
 
+function jobStatusMessage(job) {
+  const extra = (job.errors || []).join(" · ");
+  if (job.status === "cancelled") {
+    return `Stopped. Kept ${job.ok || 0} resume(s) already indexed.${job.failed ? " Failed: " + job.failed : ""}`;
+  }
+  if (job.status === "error") {
+    return job.current || "Upload failed.";
+  }
+  return `Indexed ${job.ok} resume(s).${job.failed ? " Failed: " + job.failed : ""}${extra ? " " + extra : ""}`;
+}
+
 async function uploadFiles(files) {
   if (!files.length) return;
   showOverlay(true);
+  $("#cancel-upload").disabled = false;
   renderProgress({ total: 0, done: 0, current: "Sending files…" });
   const body = new FormData();
   [...files].forEach((f) => body.append("files", f));
+  uploadAbort = new AbortController();
   try {
-    const started = await api("/api/resumes", { method: "POST", body });
+    const started = await api("/api/resumes", {
+      method: "POST",
+      body,
+      signal: uploadAbort.signal,
+    });
     const job = await waitForJob(started.id);
-    const extra = (job.errors || []).join(" · ");
     setStatus(
       "#upload-status",
-      job.status === "error"
-        ? job.current || "Upload failed."
-        : `Indexed ${job.ok} resume(s).${job.failed ? " Failed: " + job.failed : ""}${extra ? " " + extra : ""}`,
-      job.status === "error" || job.ok === 0
+      jobStatusMessage(job),
+      job.status === "error" || (job.status !== "cancelled" && job.ok === 0)
     );
     await loadFiles();
   } catch (err) {
-    setStatus("#upload-status", err.message, true);
+    if (err.name === "AbortError") {
+      setStatus("#upload-status", "Stopped before indexing started.", true);
+    } else {
+      setStatus("#upload-status", err.message, true);
+    }
   } finally {
+    activeJobId = null;
+    uploadAbort = null;
+    $("#cancel-upload").disabled = false;
     showOverlay(false);
   }
 }
@@ -152,6 +178,23 @@ function renderList(payload) {
     })
     .join("");
 }
+
+$("#cancel-upload").addEventListener("click", async () => {
+  $("#cancel-upload").disabled = true;
+  $("#progress-file").textContent = "Stopping after the current file…";
+  if (uploadAbort) {
+    uploadAbort.abort();
+  }
+  if (!activeJobId) return;
+  try {
+    const job = await api(`/api/resumes/jobs/${activeJobId}/cancel`, {
+      method: "POST",
+    });
+    renderProgress(job);
+  } catch (err) {
+    setStatus("#upload-status", err.message, true);
+  }
+});
 
 const drop = $("#dropzone");
 const input = $("#file-input");

@@ -11,6 +11,7 @@ from app.store import append_records, ingest_file
 
 _lock = threading.Lock()
 _jobs: dict[str, dict] = {}
+_cancel: dict[str, threading.Event] = {}
 
 
 def get_job(job_id: str) -> dict | None:
@@ -19,7 +20,22 @@ def get_job(job_id: str) -> dict | None:
         return dict(job) if job else None
 
 
-def start_upload_job(saved: list[tuple[str, Path]]) -> dict:
+def cancel_job(job_id: str) -> dict | None:
+    with _lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return None
+        if job["status"] in {"done", "error", "cancelled"}:
+            return dict(job)
+        job["status"] = "cancelling"
+        job["current"] = "Stopping after the current file…"
+        flag = _cancel.get(job_id)
+    if flag:
+        flag.set()
+    return get_job(job_id)
+
+
+def start_upload_job(saved: list[tuple[str, Path]], job_id: str | None = None) -> dict:
     ensure_dirs()
     total = 0
     for name, path in saved:
@@ -29,8 +45,9 @@ def start_upload_job(saved: list[tuple[str, Path]]) -> dict:
     if not total:
         raise ValueError("No PDF, DOCX, or TXT resumes found.")
 
-    job_id = uuid.uuid4().hex[:12]
+    job_id = job_id or uuid.uuid4().hex[:12]
     with _lock:
+        _cancel[job_id] = threading.Event()
         _jobs[job_id] = {
             "id": job_id,
             "status": "running",
@@ -46,11 +63,23 @@ def start_upload_job(saved: list[tuple[str, Path]]) -> dict:
     return get_job(job_id)
 
 
+def _should_stop(job_id: str) -> bool:
+    flag = _cancel.get(job_id)
+    return bool(flag and flag.is_set())
+
+
 def _run(job_id: str, saved: list[tuple[str, Path]]) -> None:
     pending: list[dict] = []
     try:
+        stop = False
         for original, path in saved:
+            if _should_stop(job_id):
+                stop = True
+                break
             for name, payload in iter_resumes(original, path=path):
+                if _should_stop(job_id):
+                    stop = True
+                    break
                 _patch(job_id, current=name)
                 try:
                     pending.append(ingest_file(name, payload, save_index=False))
@@ -60,9 +89,18 @@ def _run(job_id: str, saved: list[tuple[str, Path]]) -> None:
                 if len(pending) >= 20:
                     append_records(pending)
                     pending = []
+            if stop:
+                break
         if pending:
             append_records(pending)
-        _patch(job_id, status="done", current="Finished")
+        if stop or _should_stop(job_id):
+            _patch(
+                job_id,
+                status="cancelled",
+                current="Stopped. Already indexed files were kept.",
+            )
+        else:
+            _patch(job_id, status="done", current="Finished")
     except Exception as exc:
         if pending:
             append_records(pending)
@@ -75,6 +113,8 @@ def _run(job_id: str, saved: list[tuple[str, Path]]) -> None:
                 pass
         folder = INCOMING_DIR / job_id
         shutil.rmtree(folder, ignore_errors=True)
+        if saved:
+            shutil.rmtree(saved[0][1].parent, ignore_errors=True)
 
 
 def _bump(job_id: str, ok: bool, error: str | None = None) -> None:

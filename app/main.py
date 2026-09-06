@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.config import INCOMING_DIR, ROOT, ensure_dirs
 from app.dedupe import collapse_duplicates
-from app.jobs import get_job, start_upload_job
+from app.jobs import cancel_job, get_job, start_upload_job
 from app.llm import ask_groq
 from app.store import (
     delete_resume,
@@ -76,7 +76,7 @@ async def upload(files: list[UploadFile] = File(...)) -> dict:
             if dest.stat().st_size == 0:
                 raise ValueError(f"{name} is empty")
             saved.append((name, dest))
-        return start_upload_job(saved)
+        return start_upload_job(saved, job_id=job_id)
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -84,6 +84,14 @@ async def upload(files: list[UploadFile] = File(...)) -> dict:
 @app.get("/api/resumes/jobs/{job_id}")
 def upload_job(job_id: str) -> dict:
     job = get_job(job_id)
+    if not job:
+        raise HTTPException(404, "Upload job not found")
+    return job
+
+
+@app.post("/api/resumes/jobs/{job_id}/cancel")
+def upload_job_cancel(job_id: str) -> dict:
+    job = cancel_job(job_id)
     if not job:
         raise HTTPException(404, "Upload job not found")
     return job

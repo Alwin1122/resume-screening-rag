@@ -244,3 +244,12 @@ textarea {
   background: var(--sienna);
   transition: width 0.2s ease;
 }
+
+#cancel-upload {
+  margin-top: 16px;
+}
+
+#cancel-upload:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
