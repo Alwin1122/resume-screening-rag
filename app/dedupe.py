@@ -11,6 +11,47 @@ PLACEHOLDER_EMAILS = {
     "name@email.com",
 }
 
+TITLE_WORDS = {
+    "resume",
+    "curriculum",
+    "vitae",
+    "profile",
+    "contact",
+    "objective",
+    "summary",
+    "director",
+    "manager",
+    "engineer",
+    "specialist",
+    "analyst",
+    "developer",
+    "designer",
+    "consultant",
+    "intern",
+    "senior",
+    "junior",
+    "lead",
+    "assistant",
+    "associate",
+    "officer",
+    "president",
+    "coordinator",
+    "administrator",
+    "executive",
+    "candidate",
+    "information",
+    "technology",
+    "quality",
+    "assurance",
+    "mobile",
+    "backend",
+    "frontend",
+    "software",
+    "of",
+    "and",
+    "the",
+}
+
 
 def identity_signature(name: str, text: str) -> str:
     return _identity_blob(f"{name} {text}")[:2500]
@@ -25,54 +66,78 @@ def collapse_duplicates(items: list[dict]) -> list[dict]:
             kept.append(item)
             continue
         if _better(item, twin):
-            item["also_emails"] = _merge_contacts(item, twin)
-            idx = kept.index(twin)
-            kept[idx] = item
+            _merge_into(item, twin)
+            kept[kept.index(twin)] = item
         else:
-            twin["also_emails"] = _merge_contacts(twin, item)
+            _merge_into(twin, item)
     return [_public(item) for item in kept]
 
 
 def _with_identity(item: dict) -> dict:
     row = dict(item)
-    text = row.get("sig") or row.get("preview") or ""
-    blob = text if row.get("sig") else _identity_blob(f"{row.get('name') or ''} {text}")
+    raw = row.get("sig") or row.get("preview") or ""
+    blob = _identity_blob(f"{row.get('name') or ''} {raw}")
     row["_name"] = _norm_name(row.get("name") or "")
+    row["_name_tokens"] = _name_tokens(row.get("name") or "")
     row["_email"] = (row.get("email") or "").lower().strip()
-    row["_phone"] = re.sub(r"\D", "", row.get("phone") or "")
+    row["_phone"] = _phone_key(row.get("phone") or "")
+    if not row["_phone"]:
+        row["_phone"] = _phone_key(" ".join(PHONE_RE.findall(row.get("preview") or "")))
     row["_shingles"] = _shingles(blob)
+    row["_words"] = _words(blob)
+    row["_skills"] = {str(s).lower() for s in (row.get("skills") or [])}
     row.setdefault("also_emails", [])
+    row.setdefault("also_phones", [])
     return row
 
 
 def _same_person(left: dict, right: dict) -> bool:
     overlap = _jaccard(left["_shingles"], right["_shingles"])
-    same_name = _names_match(left["_name"], right["_name"])
-    same_email = bool(left["_email"] and left["_email"] == right["_email"])
-    real_email = left["_email"] not in PLACEHOLDER_EMAILS
-    same_phone = bool(left["_phone"] and left["_phone"] == right["_phone"] and len(left["_phone"]) >= 10)
+    words = _jaccard(left["_words"], right["_words"])
+    same_name = _names_match(left["_name"], right["_name"], left["_name_tokens"], right["_name_tokens"])
+    same_email = _real_email(left["_email"]) and left["_email"] == right["_email"]
+    same_phone = bool(left["_phone"] and left["_phone"] == right["_phone"])
+    skills = _skill_overlap(left["_skills"], right["_skills"])
 
-    if overlap >= 0.5:
+    # Same CV text, even if email or phone was changed.
+    if overlap >= 0.34 or words >= 0.48:
         return True
-    if same_name and overlap >= 0.22:
+    if same_name and (overlap >= 0.16 or words >= 0.22 or skills >= 0.7):
         return True
-    if same_name and same_phone:
+    if same_phone and (same_name or overlap >= 0.12 or words >= 0.18):
         return True
-    if same_name and same_email and real_email:
+    if same_email and (same_name or overlap >= 0.12 or words >= 0.18):
         return True
-    if same_email and real_email and overlap >= 0.18:
+    if skills >= 0.85 and same_name:
         return True
     return False
 
 
-def _names_match(a: str, b: str) -> bool:
-    if not a or not b:
+def _names_match(a: str, b: str, a_tokens: set[str], b_tokens: set[str]) -> bool:
+    if a and b:
+        if a == b:
+            return True
+        if len(a) >= 6 and (a in b or b in a):
+            return True
+    if not a_tokens or not b_tokens:
         return False
-    if a == b:
+    if a_tokens == b_tokens or a_tokens <= b_tokens or b_tokens <= a_tokens:
         return True
-    if len(a) >= 6 and (a in b or b in a):
+    shared = a_tokens & b_tokens
+    if len(shared) >= 2:
+        return True
+    if len(shared) == 1 and len(a_tokens) == 1 and len(b_tokens) == 1:
         return True
     return False
+
+
+def _skill_overlap(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    smaller = min(len(left), len(right))
+    if smaller < 4:
+        return 0.0
+    return len(left & right) / smaller
 
 
 def _better(left: dict, right: dict) -> bool:
@@ -83,12 +148,32 @@ def _better(left: dict, right: dict) -> bool:
     return int(left.get("char_count") or 0) > int(right.get("char_count") or 0)
 
 
-def _merge_contacts(keep: dict, other: dict) -> list[str]:
-    emails = []
-    for value in [keep.get("email"), other.get("email"), *(keep.get("also_emails") or []), *(other.get("also_emails") or [])]:
-        if value and value not in emails:
-            emails.append(value)
-    return emails
+def _merge_into(keep: dict, other: dict) -> None:
+    keep["also_emails"] = _unique(
+        [
+            keep.get("email"),
+            other.get("email"),
+            *(keep.get("also_emails") or []),
+            *(other.get("also_emails") or []),
+        ]
+    )
+    keep["also_phones"] = _unique(
+        [
+            keep.get("phone"),
+            other.get("phone"),
+            *(keep.get("also_phones") or []),
+            *(other.get("also_phones") or []),
+        ]
+    )
+
+
+def _unique(values: list) -> list[str]:
+    seen: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if text and text not in seen:
+            seen.append(text)
+    return seen
 
 
 def _identity_blob(text: str) -> str:
@@ -103,11 +188,32 @@ def _norm_name(name: str) -> str:
     return re.sub(r"[^a-z]", "", name.lower())
 
 
-def _shingles(blob: str, size: int = 14) -> set[str]:
+def _name_tokens(name: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]{2,}", name.lower()) if w not in TITLE_WORDS}
+
+
+def _phone_key(phone: str) -> str:
+    digits = re.sub(r"\D", "", phone or "")
+    if len(digits) >= 10:
+        return digits[-10:]
+    if len(digits) >= 7:
+        return digits[-7:]
+    return ""
+
+
+def _real_email(email: str) -> bool:
+    return bool(email) and email not in PLACEHOLDER_EMAILS
+
+
+def _words(blob: str) -> set[str]:
+    return {w for w in blob.split() if len(w) >= 4}
+
+
+def _shingles(blob: str, size: int = 12) -> set[str]:
     compact = blob.replace(" ", "")
     if len(compact) < size:
         return {compact} if compact else set()
-    return {compact[i : i + size] for i in range(0, len(compact) - size + 1, 5)}
+    return {compact[i : i + size] for i in range(0, len(compact) - size + 1, 4)}
 
 
 def _jaccard(left: set[str], right: set[str]) -> float:

@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import INCOMING_DIR, ROOT, ensure_dirs
+from app.dedupe import collapse_duplicates
 from app.jobs import get_job, start_upload_job
 from app.llm import ask_groq
 from app.store import (
@@ -46,13 +47,14 @@ class ZipBody(BaseModel):
 
 @app.get("/api/resumes")
 def resumes() -> dict:
-    items = list_resumes()
+    items = collapse_duplicates(list_resumes())
     slim = [
         {
             "id": r["id"],
             "name": r["name"],
             "filename": r["filename"],
             "predicted_roles": r.get("predicted_roles") or [],
+            "also_emails": r.get("also_emails") or [],
         }
         for r in items[:80]
     ]

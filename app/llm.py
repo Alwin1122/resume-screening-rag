@@ -21,8 +21,10 @@ Follow the user's question exactly. Do not invent a job title or role
 unless they named one. If they ask about a role, use predicted_roles
 and the resume text. Never invent people, employers, or skills.
 Treat near-duplicate resumes as one person (same name or almost the
-same text, even if the email is different). Return distinct people only.
-Return at most the requested number of people. Do not pad the list.
+same text, even if the email or phone number is different). Return
+distinct people only. Return exactly the requested number of people
+when that many unique people exist. Never return more than that number.
+Do not pad with extra people.
 Return JSON:
 {
   "summary": "one or two sentences answering the question",
@@ -40,10 +42,25 @@ Return JSON:
 Sort best first. fit is 0-100.
 """
 
+LIMIT_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+
 LIMIT_PATTERNS = (
-    r"(?:top|best|first|only)\s+(\d+)",
+    r"(?:top|best|first|only)\s*[-:]?\s*(\d+)",
+    r"\btop(\d+)\b",
+    r"(?:give|show|get|need|want|pick|select|shortlist)\s+(?:me\s+)?(?:the\s+)?(?:top|best|first|only)\s+(\d+)",
     r"shortlist(?:\s+of)?\s+(\d+)",
-    r"(\d+)\s+(?:candidates?|people|resumes?|profiles?)",
+    r"(\d+)\s+(?:candidates?|people|resumes?|profiles?|names?)",
 )
 
 
@@ -84,6 +101,14 @@ def parse_limit(text: str, requested: int | None = None) -> int:
         match = re.search(pattern, text, re.I)
         if match:
             return max(1, min(int(match.group(1)), 20))
+    word = re.search(
+        r"(?:top|best|first|only|give|show|get|need|want)\s+(?:me\s+)?(?:the\s+)?"
+        r"(?:top\s+|best\s+)?(one|two|three|four|five|six|seven|eight|nine|ten)\b",
+        text,
+        re.I,
+    )
+    if word:
+        return LIMIT_WORDS[word.group(1).lower()]
     if requested is not None:
         return max(1, min(int(requested), 20))
     return 5
@@ -92,7 +117,7 @@ def parse_limit(text: str, requested: int | None = None) -> int:
 def _count_only(text: str) -> bool:
     cleaned = re.sub(
         r"(?:top|best|first|only|shortlist(?:\s+of)?|candidates?|people|"
-        r"resumes?|profiles?|give me|show me|list|the|get|who|are|"
+        r"resumes?|profiles?|give(?:\s+me)?|show(?:\s+me)?|list|the|get|who|are|"
         r"strongest|best|pick|\d+)",
         " ",
         text,
@@ -113,8 +138,7 @@ def ask_groq(preference: str, top_k: int | None = None) -> dict:
 
     limit = parse_limit(preference, top_k)
     pool = _unique_pool(preference, limit)
-    retrieved = {"results": pool}
-    if not retrieved["results"]:
+    if not pool:
         return {
             "preference": preference,
             "summary": "No resumes in the index matched that question.",
@@ -122,35 +146,48 @@ def ask_groq(preference: str, top_k: int | None = None) -> dict:
             "model": None,
         }
 
-    context = _context_block(retrieved["results"])
+    context = _context_block(pool)
     payload = _complete(key, preference, context, limit)
-    merged = _fill_unique(
-        collapse_duplicates(_merge(payload, retrieved["results"], limit * 2)),
-        retrieved["results"],
-        limit,
-    )
+    merged = collapse_duplicates(_merge(payload, pool, limit))
+    merged = collapse_duplicates(_fill_unique(merged, pool, limit))[:limit]
     for index, row in enumerate(merged, 1):
         row["rank"] = index
+    if payload.get("summary") and len(merged) == limit:
+        summary = payload["summary"]
+    else:
+        summary = payload.get("summary") or ""
+        if len(merged) < limit:
+            summary = (
+                (summary + " " if summary else "")
+                + f"Showing {len(merged)} distinct "
+                + ("person" if len(merged) == 1 else "people")
+                + f" (asked for {limit})."
+            ).strip()
     return {
         "preference": preference,
-        "summary": payload.get("summary") or "",
+        "summary": summary,
         "list": merged,
         "model": payload.get("_model"),
+        "limit": limit,
     }
 
 
 def _unique_pool(preference: str, limit: int) -> list[dict]:
     if _count_only(preference):
-        raw = list_resumes()
+        raw = [dict(item, score=_library_score(item)) for item in list_resumes()]
+        raw.sort(key=lambda item: float(item.get("score") or 0), reverse=True)
     else:
-        pool_size = min(30, max(limit * 6, 12))
+        pool_size = min(24, max(limit * 4, 8))
         raw = search_resumes({"query": preference, "top_k": pool_size})["results"]
-        seen = {item["id"] for item in raw}
-        for item in list_resumes():
-            if item["id"] not in seen:
-                raw.append(item)
     unique = collapse_duplicates(raw)
-    return unique[: min(20, max(limit * 4, 8))]
+    unique.sort(key=lambda item: float(item.get("score") or 0), reverse=True)
+    return unique[: min(10, max(limit + 2, limit * 2))]
+
+
+def _library_score(item: dict) -> float:
+    skills = len(item.get("skills") or [])
+    chars = int(item.get("char_count") or 0)
+    return min(1.0, 0.04 * skills + min(chars, 4000) / 8000)
 
 
 def _fill_unique(picked: list[dict], pool: list[dict], limit: int) -> list[dict]:
@@ -172,8 +209,9 @@ def _complete(key: str, preference: str, context: str, limit: int) -> dict:
     client = Groq(api_key=key)
     user = (
         f"User question:\n{preference}\n\n"
-        f"Return at most {limit} people. If they asked for {limit}, "
-        f"return {limit} or fewer. Do not invent a role they did not name.\n\n"
+        f"Return exactly {limit} distinct people if at least {limit} unique "
+        f"people are listed below. Never return more than {limit}. "
+        f"Do not invent a role they did not name.\n\n"
         f"Resumes:\n{context}\n\n"
         "Return the JSON list now."
     )

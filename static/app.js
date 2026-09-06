@@ -140,6 +140,8 @@ function renderList(payload) {
               ...(r.predicted_roles || []).map((x) => x.title || x),
               r.email || r.filename || "",
               ...(r.also_emails || []).filter((e) => e && e !== r.email),
+              r.phone || "",
+              ...(r.also_phones || []).filter((p) => p && p !== r.phone),
             ]
               .filter(Boolean)
               .join(" · ")
